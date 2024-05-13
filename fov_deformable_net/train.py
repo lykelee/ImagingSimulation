@@ -5,8 +5,14 @@ import torch
 import numpy as np
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
+# modified by lyk1012@postech.ac.kr - begin
+from tqdm import tqdm
+# modified by lyk1012@postech.ac.kr - end
 
-from option.option_20220330 import args
+# modified by lyk1012@postech.ac.kr - begin
+#from option.option_20220330 import args
+from option.option import args
+# modified by lyk1012@postech.ac.kr - end
 from loss import *
 from utils import *
 from deformable_unet import DFUNet
@@ -21,9 +27,15 @@ def train():
 
     # Load dataset
     dataset = Dataset_from_h5(src_path=args.src_path, recrop_patch_size=args.patch_size, sigma=args.sigma, train=True)
-    dataloader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=True, num_workers=8, drop_last=True)
+    # modified by lyk1012@postech.ac.kr - begin
+    #dataloader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=True, num_workers=8, drop_last=True)
+    dataloader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=True, num_workers=0, drop_last=True)
+    # modified by lyk1012@postech.ac.kr - end
     dataset_val = Dataset_from_h5(src_path=args.val_path, recrop_patch_size=args.val_patch_size, sigma=args.sigma, train=False)
-    dataloader_val = DataLoader(dataset=dataset_val, batch_size=args.val_batch_size, shuffle=False, num_workers=8, drop_last=True)
+    # modified by lyk1012@postech.ac.kr - begin
+    #dataloader_val = DataLoader(dataset=dataset_val, batch_size=args.val_batch_size, shuffle=False, num_workers=8, drop_last=True)
+    dataloader_val = DataLoader(dataset=dataset_val, batch_size=args.val_batch_size, shuffle=False, num_workers=0, drop_last=True)
+    # modified by lyk1012@postech.ac.kr - end
     print('Training path of {:s};\nValidation path of {:s};'.format(args.src_path, args.val_path))
     # Build model
     input_channel, output_channel = 5, 3
@@ -62,11 +74,15 @@ def train():
     ccm = torch.from_numpy(np.ascontiguousarray(args.ccm)).float().cuda()
 
     for epoch in range(args.init_epoch, args.n_epoch):
+        """
         loss_sum = 0
         step_lr_adjust(optimizer, epoch, init_lr=args.lr, step_size=args.milestone, gamma=args.gamma)
         print('Epoch {}, lr {}'.format(epoch+1, optimizer.param_groups[0]['lr']))
         start_time = time.time()
-        for i, data in enumerate(dataloader):
+        # modified by lyk1012@postech.ac.kr - begin
+        #for i, data in enumerate(dataloader):
+        for i, data in tqdm(list(enumerate(dataloader))):
+        # modified by lyk1012@postech.ac.kr - end
             input, label = data
             if torch.cuda.is_available():
                 input, label = input.cuda(), label.cuda()
@@ -90,7 +106,10 @@ def train():
             optimizer.step()
             loss_sum += loss.item()
 
-            if (i % 100 == 0) and (i != 0) :
+            # modified by lyk1012@postech.ac.kr - begin
+            #if (i % 100 == 0) and (i != 0) :
+            if ((i % 100 == 0) and (i != 0)) or (i == len(dataloader) - 1) :
+            # modified by lyk1012@postech.ac.kr - end
                 loss_avg = loss_sum / 100
                 loss_sum = 0.0
                 print("Training: Epoch[{:0>3}/{:0>3}] Iteration[{:0>3}/{:0>3}] Loss: {:.8f} Time: {:4.4f}s".format(
@@ -106,7 +125,7 @@ def train():
                 torch.save(model.module.state_dict(), os.path.join(args.ckpt_dir, 'model_%04d_dict.pth' % (epoch+1)))
             else:
                 torch.save(model.state_dict(), os.path.join(args.ckpt_dir, 'model_%04d_dict.pth' % (epoch+1)))
-
+        """
         # validation
         if epoch % args.val_epoch == 0:
             psnr = 0
@@ -135,7 +154,12 @@ def train():
             # writer.add_scalars('Loss_group', {'valid_loss': loss_val}, epoch)
             # writer.add_scalar('valid_psnr', psnr, epoch)
             if args.save_val_img:
-                cv2.imwrite(args.ckpt_dir+"img/%04d_deblurred.png" % epoch, deblurred[..., ::-1])
+                # modified by lyk1012@postech.ac.kr - begin
+                #cv2.imwrite(args.ckpt_dir+"img/%04d_deblurred.png" % epoch, deblurred[..., ::-1])
+                cv2.imwrite(args.ckpt_dir+"_img/%04d_deblurred.png" % epoch, np.clip(255*deblurred[..., ::-1], 0, 255).astype(np.uint8))
+                cv2.imwrite(args.ckpt_dir+"_img/%04d_gt.png" % epoch, np.clip(255*clean[num][..., ::-1], 0, 255).astype(np.uint8))
+                cv2.imwrite(args.ckpt_dir+"_img/%04d_blurred.png" % epoch, np.clip(255*(input.cpu().numpy().transpose((0,2,3,1)))[num][:, :, :3][..., ::-1], 0, 255).astype(np.uint8))
+                # modified by lyk1012@postech.ac.kr - end
 
     # writer.close()
 

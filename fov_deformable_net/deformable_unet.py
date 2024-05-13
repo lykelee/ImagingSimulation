@@ -192,7 +192,11 @@ class DFUNet(nn.Module):
         L1_offset = self.offset1(up1, L2_offset)
         dconv1 = self.dres1(up1, L1_offset)
 
-        out = self.out(dconv1) + x[:, 0:3, :, :]
+        # modified by lyk1012@postech.ac.kr - begin
+        # error(not working for 1 channel image): 0:3 -> 0:-2
+        #out = self.out(dconv1) + x[:, 0:3, :, :]
+        out = self.out(dconv1) + x[:, 0:-2, :, :]
+        # modified by lyk1012@postech.ac.kr - end
 
         return out
 

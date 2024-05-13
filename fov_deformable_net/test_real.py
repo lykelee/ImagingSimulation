@@ -5,7 +5,10 @@ import torch
 import torchvision.transforms as transforms
 import scipy.io as sio
 from utils import *
-from option.option_20220330 import args
+# modified by lyk1012@postech.ac.kr - begin
+#from option.option_20220330 import args
+from option.option import args
+# modified by lyk1012@postech.ac.kr - end
 from deformable_unet import DFUNet
 
 def compute_fld_info(img):

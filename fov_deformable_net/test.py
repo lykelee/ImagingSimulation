@@ -1,13 +1,20 @@
 import os, time, glob, cv2
 import numpy as np
 import matplotlib.image as mpimg
-from skimage.measure import compare_psnr, compare_ssim
+# modified by lyk1012@postech.ac.kr - begin
+#from skimage.measure import compare_psnr, compare_ssim
+from skimage.metrics import peak_signal_noise_ratio as compare_psnr, structural_similarity as compare_ssim
+# modified by lyk1012@postech.ac.kr - end
 import torch
 import torchvision.transforms as transforms
 
 from utils import *
-from option.option_20201230 import args
-from model.__init__ import make_model
+# modified by lyk1012@postech.ac.kr - begin
+#from option.option_20201230 import args
+#from model.__init__ import make_model
+from option.option import args
+from deformable_unet import DFUNet
+# modified by lyk1012@postech.ac.kr - end
 
 def compute_fld_info(img):
     [h, w, c] = img.shape
@@ -70,8 +77,12 @@ def test_info_generator(gt_src_file_list, psnr, ssim, test_time, test_time_avr, 
 def evaluate_net():
     create_dir(args.result_png_path)
     print('Testing path is %s' % args.blur_src_path)
-    blurred_src_file_list = sorted(glob.glob(args.blur_src_path + '/*.png' ))
-    gt_src_file_list = sorted(glob.glob(args.gt_src_path + '/*.png'))
+    # modified by lyk1012@postech.ac.kr - begin
+    #blurred_src_file_list = sorted(glob.glob(args.blur_src_path + '/*.png' ))
+    #gt_src_file_list = sorted(glob.glob(args.gt_src_path + '/*.png'))
+    blurred_src_file_list = sorted(glob.glob(os.path.join(args.blur_src_path + '*.tiff')))[:20]
+    gt_src_file_list = sorted(glob.glob(os.path.join(args.gt_src_path + '*.tiff')))[:20]
+    # modified by lyk1012@postech.ac.kr - end
 
     if args.gt_src_path:
         psnr = np.zeros(len(gt_src_file_list))
@@ -81,7 +92,10 @@ def evaluate_net():
     # Build model
     input_channel, output_channel = 5, 3
 
-    model = make_model(input_channel, output_channel, args)
+    # modified by lyk1012@postech.ac.kr - begin
+    #model = make_model(input_channel, output_channel, args)
+    model = DFUNet(input_channel, output_channel, args.n_channel, args.offset_channel)
+    # modified by lyk1012@postech.ac.kr - end
 
     if torch.cuda.is_available():
         model_dict = torch.load(args.ckpt_dir_test + '/model_%04d_dict.pth' % args.epoch_test)
@@ -106,6 +120,11 @@ def evaluate_net():
         in_img = in_img[..., ::-1]
         in_img = np.asarray(in_img / 255, np.float64)
 
+        # modified by lyk1012@postech.ac.kr - begin
+        gt_img = cv2.resize(gt_img, (400, 400))
+        in_img = cv2.resize(in_img, (400, 400))
+        # modified by lyk1012@postech.ac.kr - end
+
         # add noise
         if args.sigma:
             noise = np.random.normal(loc=0, scale=args.sigma/255.0, size=in_img.shape)
@@ -117,7 +136,9 @@ def evaluate_net():
         [h, w, c] = in_img_wz_fld.shape
         padded_in_img_wz_fld = np.pad(in_img_wz_fld, ((50, 50), (50, 50), (0, 0)), 'edge')
         # crop_patch
-        patch_list = crop_patch(padded_in_img_wz_fld, patch_size=500, pad_size=100)
+        # modified by lyk1012@postech.ac.kr - begin
+        patch_list = crop_patch(padded_in_img_wz_fld, patch_size=400, pad_size=100)
+        # modified by lyk1012@postech.ac.kr - end
         # concat in and gt, gt->in
         print('process img: %s' % blurred_src_file_list[index])
         for i in range(len(patch_list)):
@@ -138,7 +159,10 @@ def evaluate_net():
             rgb_patch = np.clip(rgb_patch[0], 0, 1)
             out_patch_list.append(rgb_patch)
 
-        rgb = sew_up_img(out_patch_list, patch_size=500, pad_size=100, img_size=[3000, 4000])
+        # modified by lyk1012@postech.ac.kr - begin
+        #rgb = sew_up_img(out_patch_list, patch_size=500, pad_size=100, img_size=[3000, 4000])
+        rgb = sew_up_img(out_patch_list, patch_size=400, pad_size=100, img_size=[400, 400])
+        # modified by lyk1012@postech.ac.kr - end
         
         # compare psnr and ssim
         psnr[index] = compare_psnr(gt_img, rgb)
@@ -146,6 +170,9 @@ def evaluate_net():
         # save image
         rgb = rgb[..., ::-1]
         cv2.imwrite(args.result_png_path + '/' + img_name + ".png", np.uint8(rgb*255))
+        # modified by lyk1012@postech.ac.kr - begin
+        cv2.imwrite(args.result_png_path + '/' + img_name + "_gt.png", np.uint8(gt_img*255))
+        # modified by lyk1012@postech.ac.kr - end
         print('test image: %s saved!' %img_name)
 
     test_time_avr = 0

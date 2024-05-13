@@ -37,8 +37,12 @@ def crop_patch(img, half_patch_size, stride, random_crop):
             np.random.randint(half_patch_size, w - half_patch_size)) \
             for i in range(crop_num)]
     else:
-        pos = [(ht, wt) for ht in range(half_patch_size, h, stride) \
-            for wt in range(half_patch_size, w, stride)]
+        # modified by lyk1012@postech.ac.kr - begin
+        #pos = [(ht, wt) for ht in range(half_patch_size, h, stride) \
+        #    for wt in range(half_patch_size, w, stride)]
+        pos = [(ht, wt) for ht in range(half_patch_size, h - half_patch_size + 1, stride) \
+            for wt in range(half_patch_size, w - half_patch_size + 1, stride)]
+        # modified by lyk1012@postech.ac.kr - end
 
     for (ht, wt) in pos:
         cropped_img = img_wz_fld[ht - half_patch_size:ht + half_patch_size, wt - half_patch_size:wt + half_patch_size, :]
@@ -117,6 +121,13 @@ def gen_dataset(src_input_files, src_label_files, dst_path, date_index, splited_
         print("Now processing img pairs of %s", os.path.basename(src_input_files[img_idx]))
         img_input = tifffile.imread(src_input_files[img_idx])
         img_label = tifffile.imread(src_label_files[img_idx])
+
+        # modified by lyk1012@postech.ac.kr - begin
+        if len(img_input.shape) == 2:
+            img_input = cv2.cvtColor(img_input, cv2.COLOR_GRAY2RGB)
+        if len(img_label.shape) == 2:
+            img_label = cv2.cvtColor(img_label, cv2.COLOR_GRAY2RGB)
+        # modified by lyk1012@postech.ac.kr - end
 
         # normalize the input and the label
         img_input = np.asarray(img_input / 65535, np.float32)

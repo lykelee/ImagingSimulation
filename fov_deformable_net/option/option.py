@@ -16,8 +16,11 @@ parser.add_argument('--log_dir', type=str,
                     default="./log_dir",
                     help='log directory')
 # Hardware specifications
-parser.add_argument('--gpu', type=str, default="2",
-                    help='GPUs')
+# modified by lyk1012@postech.ac.kr - begin
+#parser.add_argument('--gpu', type=str, default="2",
+#                    help='GPUs')
+parser.add_argument('--gpu', type=str, default="0", help='GPUs')
+# modified by lyk1012@postech.ac.kr - end
 
 # Training parameters
 parser.add_argument('--batch_size', type=int, default=32,
